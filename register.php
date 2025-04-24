@@ -1,103 +1,78 @@
 <?php
-session_start();
-$errors = [];
-$success = "";
+require_once 'database.php';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = htmlspecialchars(trim($_POST["username"] ?? ""));
-    $email = htmlspecialchars(trim($_POST["email"] ?? ""));
-    $password = $_POST["password"] ?? "";
-    $repeat_password = $_POST["repeat-password"] ?? "";
+if (isset($_SESSION['user_id'])) {
+    header("Location: dashboard.php");
+    exit;
+}
 
-    if (!$username) $errors["username"] = "Vui lòng nhập họ tên.";
-    if (!$email) $errors["email"] = "Vui lòng nhập email.";
-    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors["email"] = "Email không hợp lệ.";
-    if (!$password) $errors["password"] = "Vui lòng nhập mật khẩu.";
-    elseif (strlen($password) < 6) $errors["password"] = "Mật khẩu phải có ít nhất 6 ký tự.";
-    if ($password !== $repeat_password) $errors["repeat-password"] = "Mật khẩu xác nhận không khớp.";
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
+    $password = $_POST['password'];
+    $reset_password = $_POST['reset_password'];
 
-    if (!$errors) {
-        $success = "Đăng ký thành công! Chào mừng, $username.";
-        $_POST = [];
-        setcookie("username", $username, time() + 3600, "/");
-        setcookie("email", $email, time() + 3600, "/");
-        setcookie("password", $password, time() + 3600, "/");
-        header("Location: ./login.php");
-        exit();
+    if (empty($username) || empty($email) || empty($password) || empty($reset_password)) {
+        $error = "All fields are required.";
+    } elseif ($password !== $reset_password) {
+        $error = "Passwords do not match.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Invalid email format.";
+    } else {
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            $error = "Email already exists.";
+        } else {
+            $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+            $stmt = $pdo->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+            if ($stmt->execute([$username, $email, $hashed_password])) {
+                header("Location: login.php");
+                exit;
+            } else {
+                $error = "Registration failed. Try again.";
+            }
+        }
     }
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-  <!-- TODO
-  1) Chuyển đổi register.html thành file php và chạy trên webserver để xử lý 
-  form đăng ký người dùng gồm các thông tin: 
-  Họ tên: Không được để trống. 
-  Email: Không được để trống và phải đúng định dạng.
-  Mật khẩu: Không được để trống, ít nhất 6 ký tự (strlen()).
-  Xác nhận mật khẩu: Phải giống với Mật khẩu.
-  gợi ý: 
-    + Kiểm tra và lọc dữ liệu đầu vào để chống XSS (htmlspecialchars()).
-    + có thể sử dụng filter_var hoặc preg_match để kiểm tra biến
-  2) Lỗi phát sinh sẽ được đưa vào mãng $errors = [];
-  ví dụ: $errors = ["username" => "Vui lòng nhập họ tên.", "email" => "Vui lòng nhập email."];
-  3) Hiển thị lỗi nếu có sai sót và giữ nguyên dữ liệu đã nhập nếu có lỗi.
-  Có thể hiển thị lỗi trên đầu form hoặc lỗi ngay dưới phần nhập của lỗi.
-  4) Nếu đăng ký thành công, hiển thị thông báo chào mừng. Xóa trống form đăng ký.
-  -->
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="./reset.css" />
-    <link rel="stylesheet" href="./style.css" />
-    <title>Register Page</title>
-    <style>
-        .error-messages { color: red; font-weight: bold; }
-        .success-message { color: green; font-weight: bold; }
-        .error { background-color: #ffdddd; padding: 10px; border-radius: 5px; }
-        .success { background-color: #ddffdd; padding: 10px; border-radius: 5px; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Ký</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <div class="wrapper fade-in-down">
-        <div id="form-content">
-            <a href="./login.php">
-                <h2 class="inactive underline-hover">Đăng nhập</h2>
-            </a>
-            <a href="./register.php">
-                <h2 class="active">Đăng ký</h2>
-            </a>
-            <div class="fade-in first">
-                <img src="./imgs/avatar.png" id="avatar" alt="User Icon" />
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h2 class="text-2xl font-bold text-center mb-6">Đăng Ký</h2>
+        <?php if ($error): ?>
+            <p class="text-red-500 text-center mb-4"><?php echo $error; ?></p>
+        <?php endif; ?>
+        <form method="POST" action="">
+            <div class="mb-4">
+                <label class="block text-gray-700">Tên người dùng</label>
+                <input type="text" name="username" class="w-full p-2 border rounded" required>
             </div>
-            
-            <?php if (!empty($errors)) : ?>
-                <div class="error-messages">
-                    <?php foreach ($errors as $error) : ?>
-                        <p class="error"> <?php echo $error; ?> </p>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if (!empty($success)) : ?>
-                <div class="success-message">
-                    <p class="success"> <?php echo $success; ?> </p>
-                </div>
-            <?php endif; ?>
-
-            <form method="POST" action="">
-                <input type="text" name="username" placeholder="Họ tên" value="<?php echo isset($_POST['username']) ? $_POST['username'] : ''; ?>" />
-                <input type="email" name="email" placeholder="Email" value="<?php echo isset($_POST['email']) ? $_POST['email'] : ''; ?>" />
-                <input type="password" name="password" placeholder="Mật khẩu" />
-                <input type="password" name="repeat-password" placeholder="Xác nhận mật khẩu" />
-                <input type="submit" value="Đăng ký" />         
-            </form>
-
-            <div id="form-footer">
-                <a class="underline-hover" href="#">Quên mật khẩu?</a>
+            <div class="mb-4">
+                <label class="block text-gray-700">Email</label>
+                <input type="email" name="email" class="w-full p-2 border rounded" required>
             </div>
-        </div>
+            <div class="mb-4">
+                <label class="block text-gray-700">Mật Khẩu</label>
+                <input type="password" name="password" class="w-full p-2 border rounded" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700">Xác nhận mật khẩu</label>
+                <input type="password" name="reset_password" class="w-full p-2 border rounded" required>
+            </div>
+            <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Đăng Ký</button>
+        </form>
+        <p class="text-center mt-4">Bạn đã có tài khoản? <a href="login.php" class="text-blue-500">Đăng Nhập</a></p>
     </div>
 </body>
 </html>
