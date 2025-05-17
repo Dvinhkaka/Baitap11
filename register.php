@@ -1,5 +1,5 @@
 <?php
-require_once 'database.php';
+require 'config.php';
 
 if (isset($_SESSION['user_id'])) {
     header("Location: dashboard.php");
@@ -7,72 +7,61 @@ if (isset($_SESSION['user_id'])) {
 }
 
 $error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = trim($_POST['username']);
     $email = trim($_POST['email']);
-    $password = $_POST['password'];
-    $reset_password = $_POST['reset_password'];
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    $reset_password = password_hash($_POST['reset_password'], PASSWORD_DEFAULT);
 
-    if (empty($username) || empty($email) || empty($password) || empty($reset_password)) {
-        $error = "All fields are required.";
-    } elseif ($password !== $reset_password) {
-        $error = "Passwords do not match.";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = "Invalid email format.";
-    } else {
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    try {
+        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
-        if ($stmt->fetch()) {
-            $error = "Email already exists.";
+        if ($stmt->rowCount() > 0) {
+            $error = "Email đã được sử dụng!";
         } else {
-            $hashed_password = password_hash($password, PASSWORD_BCRYPT);
-            $stmt = $pdo->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
-            if ($stmt->execute([$username, $email, $hashed_password])) {
-                header("Location: login.php");
-                exit;
-            } else {
-                $error = "Registration failed. Try again.";
-            }
+            $stmt = $conn->prepare("INSERT INTO users (username, email, password, reset_password) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$username, $email, $password, $reset_password]);
+            header("Location: login.php");
+            exit;
         }
+    } catch(PDOException $e) {
+        $error = "Lỗi: " . $e->getMessage();
     }
 }
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng Ký</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="style.css">
+    <title>Đăng ký</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 class="text-2xl font-bold text-center mb-6">Đăng Ký</h2>
+    <div class="bg-white p-8 rounded shadow-md w-96">
+        <h2 class="text-2xl font-bold mb-6 text-center">Đăng ký</h2>
         <?php if ($error): ?>
-            <p class="text-red-500 text-center mb-4"><?php echo $error; ?></p>
+            <p class="text-red-500 mb-4"><?php echo $error; ?></p>
         <?php endif; ?>
-        <form method="POST" action="">
+        <form method="post" action="">
             <div class="mb-4">
                 <label class="block text-gray-700">Tên người dùng</label>
-                <input type="text" name="username" class="w-full p-2 border rounded" required>
+                <input type="text" name="username" required class="w-full px-3 py-2 border rounded">
             </div>
             <div class="mb-4">
                 <label class="block text-gray-700">Email</label>
-                <input type="email" name="email" class="w-full p-2 border rounded" required>
+                <input type="email" name="email" required class="w-full px-3 py-2 border rounded">
             </div>
             <div class="mb-4">
-                <label class="block text-gray-700">Mật Khẩu</label>
-                <input type="password" name="password" class="w-full p-2 border rounded" required>
+                <label class="block text-gray-700">Mật khẩu</label>
+                <input type="password" name="password" required class="w-full px-3 py-2 border rounded">
             </div>
             <div class="mb-4">
-                <label class="block text-gray-700">Xác nhận mật khẩu</label>
-                <input type="password" name="reset_password" class="w-full p-2 border rounded" required>
+                <label class="block text-gray-700">Mật khẩu khôi phục</label>
+                <input type="password" name="reset_password" required class="w-full px-3 py-2 border rounded">
             </div>
-            <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Đăng Ký</button>
+            <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">Đăng ký</button>
         </form>
-        <p class="text-center mt-4">Bạn đã có tài khoản? <a href="login.php" class="text-blue-500">Đăng Nhập</a></p>
+        <p class="mt-4 text-center">Đã có tài khoản? <a href="login.php" class="text-blue-500">Đăng nhập</a></p>
     </div>
 </body>
 </html>

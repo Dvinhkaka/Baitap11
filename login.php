@@ -1,5 +1,5 @@
 <?php
-require_once 'database.php';
+require 'config.php';
 
 if (isset($_SESSION['user_id'])) {
     header("Location: dashboard.php");
@@ -7,14 +7,12 @@ if (isset($_SESSION['user_id'])) {
 }
 
 $error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
 
-    if (empty($email) || empty($password)) {
-        $error = "Email and password are required.";
-    } else {
-        $stmt = $pdo->prepare("SELECT id, password FROM users WHERE email = ?");
+    try {
+        $stmt = $conn->prepare("SELECT id, password FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
@@ -23,39 +21,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: dashboard.php");
             exit;
         } else {
-            $error = "Invalid email or password.";
+            $error = "Email hoặc mật khẩu không đúng!";
         }
+    } catch(PDOException $e) {
+        $error = "Lỗi: " . $e->getMessage();
     }
 }
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng Nhập</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="./style.css">
+    <title>Đăng nhập</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 class="text-2xl font-bold text-center mb-6">Đăng Nhập</h2>
+    <div class="bg-white p-8 rounded shadow-md w-96">
+        <h2 class="text-2xl font-bold mb-6 text-center">Đăng nhập</h2>
         <?php if ($error): ?>
-            <p class="text-red-500 text-center mb-4"><?php echo $error; ?></p>
+            <p class="text-red-500 mb-4"><?php echo $error; ?></p>
         <?php endif; ?>
-        <form method="POST" action="">
+        <form method="post" action="">
             <div class="mb-4">
                 <label class="block text-gray-700">Email</label>
-                <input type="email" name="email" class="w-full p-2 border rounded" required>
+                <input type="email" name="email" required class="w-full px-3 py-2 border rounded">
             </div>
             <div class="mb-4">
                 <label class="block text-gray-700">Mật khẩu</label>
-                <input type="password" name="password" class="w-full p-2 border rounded" required>
+                <input type="password" name="password" required class="w-full px-3 py-2 border rounded">
             </div>
-            <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Đăng Nhập</button>
+            <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">Đăng nhập</button>
         </form>
-        <p class="text-center mt-4">Không có tài khoản? <a href="register.php" class="text-blue-500">Đăng Ký</a></p>
+        <p class="mt-4 text-center">Chưa có tài khoản? <a href="register.php" class="text-blue-500">Đăng ký</a></p>
     </div>
 </body>
 </html>
